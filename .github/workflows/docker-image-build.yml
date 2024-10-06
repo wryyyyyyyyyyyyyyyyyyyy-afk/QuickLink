@@ -19,5 +19,5 @@ jobs:
       run: |
         docker build \
         -t "quicklink:dev" \
-        -f "src/QuickLink/Dockerfile" \
+        -f "src/QuickLink.Web/Dockerfile" \
         ${{github.workspace}}/src
