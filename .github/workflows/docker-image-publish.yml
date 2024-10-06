@@ -1,48 +1,49 @@
-name: Docker image publish
+name: Server Build & Push
 
 on:
   push:
     tags:
     - '*'
-
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - docker-compose.yml
+      - Dockerfile
 
 jobs:
-  docker-image-publish:
+  build_and_push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-
-      - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@79abd3f86f79a9d68a23c75a09a9a85889262adf
-
-      - name: Log into registry ${{ env.REGISTRY }}
-        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+      - name: Checkout the repo
+        uses: actions/checkout@v2
+        
+      - name: Create env file
+        run: |
+          touch .env
+          echo "${{ secrets.SERVER_ENV_PROD }}" > .env
+          cat .env
+          
+      - name: Build image
+        run: docker compose -f src/docker-compose.yml build
+        
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+          
+      - name: Log in to DO Container Registry
+        run: doctl registry login --expiry-seconds 600
+        
+      - name: Push image to DO Container Registry
+        run: docker compose -f src/docker-compose.yml push
+        
+      - name: Deploy Stack
+        uses: appleboy/ssh-action@master
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-
-      - name: Build and push Docker image
-        id: build-and-push
-        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a
-        with:
-          context: "{{defaultContext}}:src"
-          file: docker-compose.yml
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          host: ${{ secrets.GL_SSH_HOST }}
+          username: ${{ secrets.GL_SSH_USERNAME }}
+          key: ${{ secrets.GL_SSH_SECRET }}
+          port: ${{ secrets.GL_SSH_PORT }}
+          script: |
+            cd src/docker-compose.yml
+            ./init.sh
