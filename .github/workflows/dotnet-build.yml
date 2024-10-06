@@ -24,7 +24,7 @@ jobs:
 
     - name: Restore dependencies
       working-directory: ${{env.working-directory}}
-      run: dotnet restore
+      run: dotnet restore QuickLink.sln
       
     - name: Build
       working-directory: ${{env.working-directory}}
