@@ -6,7 +6,7 @@ services:
       - SA_PASSWORD=1Secure*Password1
 
   quicklink.web:
-    image: ${DOCKER_REGISTRY-}quicklinkweb
+    image: quicklink
     build:
       context: .
       dockerfile: QuickLink.Web/Dockerfile
